@@ -1,0 +1,146 @@
+package com.liteorm.test;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import junit.framework.TestCase;
+
+import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.log4j.Logger;
+
+import com.liteorm.LiteORM;
+import com.liteorm.LiteORMImpl;
+
+/**
+ * Схема для тестов - в папке res
+ * 
+ * @author kopernik
+ *
+ */
+public class LiteORMTest extends TestCase{
+	public static Logger logger = Logger.getLogger("test");
+	private static String[] mapfiles = new String[]{"res/catalogue.hbm.xml",
+												"res/host.hbm.xml",
+												"res/url.hbm.xml",
+												"res/qobject.hbm.xml",
+												"res/property.hbm.xml"};
+	
+	public void testLiteORM() throws Exception{
+		BasicDataSource dataSource = new BasicDataSource();
+		dataSource.setDriverClassName("com.mysql.jdbc.Driver");
+		dataSource.setUrl("jdbc:mysql://localhost/test");
+		dataSource.setUsername("root");
+		dataSource.setPassword("1111");
+		
+		LiteORM DB = new LiteORMImpl(mapfiles, dataSource);
+		
+		logger.info("** Start tests...");
+		logger.info("*************************************************");
+		
+		simpleOperationsTest(DB);
+		
+		simpleBulkOperations(DB);
+		
+		one2manyTest(DB);
+		
+		logger.info("*************************************************");
+		logger.info("** OK");
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void simpleOperationsTest(LiteORM DB){
+		logger.info("** Simple class operations...");
+		logger.info("**** insert...");
+		Host yandex = new Host("market.yandex.ru",(short)1);
+		DB.insert(yandex);
+		assertNotNull(yandex.getId());
+		
+		Host amazon = new Host("amazon.com",(short)1);
+		DB.insert(amazon);
+		assertNotNull(amazon.getId());
+		
+		Host ebay = new Host("ebay.com",(short)0);
+		DB.insert(ebay);
+		assertNotNull(amazon.getId());
+		
+		logger.info("**** select...");
+		List<Host> hosts = DB.select("from Host");
+		assertEquals(3,hosts.size());
+		hosts = DB.select("from Host where status=?", 0);
+		assertEquals(1,hosts.size());
+		hosts = DB.select("from Host where host like ?", "%.com");
+		assertEquals(2,hosts.size());
+		
+		logger.info("**** update...");
+		yandex.setHost("yandex.ru");
+		DB.update(yandex);
+		hosts = DB.select("from Host where host=?", "market.yandex.ru");
+		assertEquals(0,hosts.size());
+		hosts = DB.select("from Host where host=?", yandex.getHost());
+		assertEquals(1,hosts.size());
+		assertEquals(yandex.getId(), hosts.get(0).getId());
+		
+		logger.info("**** delete...");
+		DB.delete(ebay);
+		hosts = DB.select("from Host where id=?", ebay.getId());
+		assertEquals(0, hosts.size());
+		hosts = DB.select("from Host where host=?", ebay.getHost());
+		assertEquals(0, hosts.size());
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void simpleBulkOperations(LiteORM DB){
+		logger.info("** Simple bulk operations...");
+		logger.info("**** bulk insert...");
+		List<Host> hosts = new ArrayList<Host>(100);
+		for(int i = 0;i<100;i++){
+			hosts.add(new Host("host"+i+".qippo.com",(short)4));
+		}
+		DB.bulkInsert(hosts);
+		for(Host host:hosts){
+			assertNotNull("Null ID detected in simple bulk insert", host.getId());
+		}
+		hosts = null;
+		hosts = DB.select("from Host where host like ?", "%qippo.com");
+		assertEquals("Bulk saved objects count mismatch",100, hosts.size());
+		
+		logger.info("**** bulk update...");
+		for(Host host:hosts){
+			host.setHost(host.getHost()+"/incorrect");
+		}
+		DB.bulkUpdate(hosts);
+		hosts = null;
+		hosts = DB.select("from Host where host like ?", "%qippo.com");
+		assertEquals("Error bulk update, some rows do not updated",0, hosts.size());
+		hosts = DB.select("from Host where host like ?", "%qippo.com/incorrect");
+		assertEquals("Error bulk update, some rows updated incorrect",100, hosts.size());
+		
+		logger.info("**** bulk delete...");
+		DB.bulkDelete(hosts);
+		hosts = DB.select("from Host where host like ?", "%qippo.com%");
+		assertEquals("Error bulk delete, some rows not deleted",0, hosts.size());		
+	}
+	
+	private void one2manyTest(LiteORM DB){
+		Host yandex = new Host("market.yandex.ru",(short)1);
+		DB.insert(yandex);
+		Url url = new Url("http://testurl.ru", yandex);
+		DB.insert(url);
+		Object o = new Object("Test object", 10.99f, url);
+		Set<Property> props = new HashSet<Property>();
+		props.add(new Property("Picture","http://sdfsdfsdfsdfsdf"));
+		props.add(new Property("Brand","Transcend"));
+		props.add(new Property("Screen","15"));
+		o.setProperties(props);
+		DB.insert(o);
+		List<Property> plist = DB.select("from Property where object=?", o.getObjectId());
+		assertEquals(3, plist.size());
+		
+		DB.delete(o);
+		plist = DB.select("from Property where object=?", o.getObjectId());
+		assertEquals(0, plist.size());
+		
+	}
+
+}

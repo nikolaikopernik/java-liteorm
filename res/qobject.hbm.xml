@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<hibernate-mapping package="com.liteorm.test">
+	<class name="Object" table="objects" lazy="false">
+		<id name="objectId" column="object_id">
+			<generator class="native" />
+		</id>
+		<property name="title" />
+		<many-to-one name="catalogue" column="cat_id" class="com.liteorm.test.Catalogue" />
+		<many-to-one name="url" column="url_id"  class="com.liteorm.test.Url" />
+        <property name="price" />
+        
+        <set name="properties" cascade="save-update, delete"  lazy="false" inverse="true">
+			<key column="object_id" />
+			<one-to-many class="com.liteorm.test.Property" />
+		</set>
+	</class>
+</hibernate-mapping>

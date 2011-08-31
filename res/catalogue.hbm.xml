@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<hibernate-mapping package="com.liteorm.test">
+	<class name="Catalogue" table="catalogues" lazy="false">
+		<id name="catId" column="cat_id">
+			<generator class="native" />
+		</id>
+		<property name="title" />
+		<many-to-one name="parent" column="parent_id" class="com.liteorm.test.Catalogue"/>
+		<property name="status" column="status" type="short" />
+	</class>
+</hibernate-mapping>

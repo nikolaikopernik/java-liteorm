@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<hibernate-mapping package="com.liteorm.test">
+	<class name="Url" table="urls" lazy="false">
+		<id name="id" column="id">
+			<generator class="native" />
+		</id>
+		<many-to-one name="host" column="host_id" class="com.liteorm.test.Host"/>
+		<property name="url" column="url" type="string"/>
+	</class>
+</hibernate-mapping>

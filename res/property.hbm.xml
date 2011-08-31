@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<hibernate-mapping package="com.liteorm.test">
+	<class name="Property" table="properties" lazy="false">
+		<id name="propertyId" column="property_id">
+			<generator class="native" />
+		</id>
+		<many-to-one name="object" column="object_id" class="com.liteorm.test.Object" />
+		<property name="name" type="string" />
+		<property name="value" type="string" />
+	</class>
+</hibernate-mapping>
