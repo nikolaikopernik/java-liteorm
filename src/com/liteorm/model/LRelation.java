@@ -6,10 +6,14 @@ package com.liteorm.model;
  *
  */
 public class LRelation {
+	public static final int MANY2ONE = 0;
+	public static final int ONE2MANY = 1;
+	
 	private LField mainField;
 	private LClass mainClass;
 	private LClass relClass;
 	private LField relField;
+	private int type;
 	private boolean delete = false;
 	private boolean update = false;
 	
@@ -18,6 +22,11 @@ public class LRelation {
 		this.mainClass = mClass;
 		this.relClass = rclass;
 		this.relField = rField;
+		if(mfield.isManyToOne()){
+			type = MANY2ONE;
+		}else{
+			type = ONE2MANY;
+		}
 	}
 	
 	public LRelation(LClass mClass, LField mfield, LClass rclass, LField rField, boolean update, boolean delete) {
@@ -48,5 +57,9 @@ public class LRelation {
 	
 	public boolean isDelete(){
 		return delete;
+	}
+	
+	public int getType() {
+		return type;
 	}
 }

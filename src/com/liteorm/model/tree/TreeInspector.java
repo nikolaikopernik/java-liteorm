@@ -7,5 +7,11 @@ package com.liteorm.model.tree;
  * @param <T>
  */
 public interface TreeInspector<T> {
-	public void inspect(TreeNode<T> node);
+	/**
+	 * прохождение узла дерева
+	 * @param node текущий нод
+	 * @param level текущий левел
+	 * @return нужно ли дальше спускаться или перейти к следующему брату?
+	 */
+	public boolean inspect(TreeNode<T> node, int level);
 }

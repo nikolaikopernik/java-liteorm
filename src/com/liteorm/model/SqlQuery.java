@@ -13,5 +13,5 @@ public class SqlQuery {
 	public LClass targetClass;
 	public List<LClass> allClasses;
 	public LFilter filter;
-	public String[] subQueries;
+	public List<SqlSubQuery> subQueries;
 }

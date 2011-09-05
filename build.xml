@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<project name="java-liteorm" default="jar" basedir=".">
+    <property name="name" value="java-liteorm"/>
+	<property name="dir.build" value="bin"/>
+    <property name="dir.src" value="src"/>
+    <property name="dir.lib" value="lib"/>
+
+    <property environment="env"/>
+
+    <condition property="unix">
+        <os family="unix"/>
+    </condition>
+
+    <condition property="windows">
+        <os family="windows"/>
+    </condition>
+
+    <path id="classpath">
+        <fileset dir="${dir.lib}" includes="**/*.jar"/>
+    </path>
+
+    <target name="compile" description="compiles sources files">
+        <mkdir dir="${dir.build}"/>
+        <javac destdir="${dir.build}" encoding="utf8" debug="true" debuglevel="lines,vars,source">
+            <src path="${dir.src}"/>
+            <classpath refid="classpath"/>
+        </javac>
+    </target>
+
+    <target name="jar" depends="compile" description="package compiled files into jar">
+        <manifest file="MANIFEST.MF">
+            <attribute name="Built-By" value="Liteorm Team"/>
+        </manifest>
+        <jar destfile="${name}.jar" basedir="${dir.build}" manifest="MANIFEST.MF"/>
+    </target>
+</project>

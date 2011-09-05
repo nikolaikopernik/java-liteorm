@@ -233,6 +233,7 @@ public class LModel {
 			
 			SqlQueryTables sqlTables = new SqlQueryTables(FROM, this);
 			
+			
 			//Анализируем поля в WHERE
 			if(!WHERE.isEmpty()){
 				sqlWHERE = LQLParser.translateWHERE(WHERE, sqlTables);
@@ -260,13 +261,14 @@ public class LModel {
 			}
 			
 			LFilter filter = null;
-			if(sqlTables.allClassesCount()>1){
+			if(sqlTables.relatedCount() > 0){
 				filter = new LFilter(sqlTables.allClasses(), sqlTables);
 			}else{
 				filter = new LFilter(sqlTables.getTargetClass());
 			}
 			
 			query = new SqlQuery();
+			query.subQueries = sqlTables.getSubQueries();
 			query.targetClass = sqlTables.getTargetClass();
 			query.allClasses = sqlTables.allClasses();
 			if(!sqlWHERE.isEmpty()){

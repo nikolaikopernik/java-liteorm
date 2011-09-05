@@ -21,6 +21,7 @@ import com.liteorm.model.LClass;
 import com.liteorm.model.LModel;
 import com.liteorm.model.LRelation;
 import com.liteorm.model.SqlQuery;
+import com.liteorm.model.SqlSubQuery;
 import com.liteorm.sql.SQL;
 
 public class LiteORMImpl implements LiteORM{
@@ -92,6 +93,7 @@ public class LiteORMImpl implements LiteORM{
 		return null;
 	}
 	
+	@SuppressWarnings("unchecked")
 	private List selectInner(String sql, int n, Object ... objects){
 		try{
 			SqlQuery query = model.generateSelectQuery(sql,n);
@@ -102,6 +104,18 @@ public class LiteORMImpl implements LiteORM{
 				Object o = query.targetClass.getClazz().newInstance();
 				query.filter.readSimpleResult(set, o);
 				result.add(o);
+			}
+
+			if(query.subQueries!=null && !query.subQueries.isEmpty()){
+				for(Object o:result){
+					for(SqlSubQuery q:query.subQueries){
+						q.newObject(o);
+					}
+				}
+				for(SqlSubQuery q:query.subQueries){
+					List subResult = select(q.getHql(), q.generateParam());
+					q.setValues(subResult);
+				}
 			}
 			return result;
 		}catch (Exception e) {

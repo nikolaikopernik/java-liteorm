@@ -18,14 +18,14 @@ public class Tree<T> {
 	}
 	
 	public void inspect(TreeInspector<T> inspector){
-		inspect(inspector,root);
+		inspect(inspector,root,0);
 	}
 	
-	private void inspect(TreeInspector<T> inspector, TreeNode<T> node){
-		inspector.inspect(node);
-		if(!node.isLeaf()){
+	private void inspect(TreeInspector<T> inspector, TreeNode<T> node, int level){
+		boolean go = inspector.inspect(node, level);
+		if(go && !node.isLeaf()){
 			for(TreeNode<T> child:node.getChilds()){
-				inspect(inspector, child);
+				inspect(inspector, child, level+1);
 			}
 		}
 	}

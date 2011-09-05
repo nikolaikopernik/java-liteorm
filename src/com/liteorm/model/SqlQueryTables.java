@@ -1,6 +1,8 @@
 package com.liteorm.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -21,12 +23,14 @@ import com.liteorm.model.tree.TreeNode;
  *
  */
 public class SqlQueryTables implements TreeInspector<RelationInfo>{
+	private List<LClass> relationClasses = new LinkedList<LClass>();
 	private List<LClass> classes = new LinkedList<LClass>();
 	private HashMap<String, LClass> classesH = new HashMap<String, LClass>();
 	private HashMap<String, String> alias2class = new HashMap<String, String>();
 	private HashMap<String, String> class2alias = new HashMap<String, String>();
 	private LClass targetClass = null;
 	private StringBuilder text = null;
+	private List<SqlSubQuery> subQueries = new ArrayList<SqlSubQuery>(1);
 	
 	public SqlQueryTables(String fromPart, LModel model) throws LQueryParsingException{
 		List<String> classOrder = new LinkedList<String>();
@@ -38,13 +42,19 @@ public class SqlQueryTables implements TreeInspector<RelationInfo>{
 		}
 		
 		//Анализируем имена классов из FROM
+		int n =0;
 		for(String name:classOrder){
 			LClass clazz = model.findClassByName(name);
 			if(clazz == null){
 				throw new LQueryParsingException("Cannot find class "+name+" in liteorm configuration.", fromPart);
 			}
+			
 			classesH.put(name, clazz);
 			classes.add(clazz);
+			if(n>0){
+				relationClasses.add(clazz);
+			}
+			n++;
 			if(!class2alias.containsKey(name)){
 				class2alias.put(name,"_a"+i);
 				alias2class.put("_a"+i, name);
@@ -73,7 +83,7 @@ public class SqlQueryTables implements TreeInspector<RelationInfo>{
 			List<LRelation> list = model.many2one.get(node.data().clazz);
 			if(list!=null && !list.isEmpty()){
 				for(LRelation rel:list){
-					if(classes.contains(rel.getRelClass())){
+					if(relationClasses.contains(rel.getRelClass())){
 						RelationInfo info = new RelationInfo(rel.getRelClass(), rel, class2alias.get(rel.getRelClass().getName()));
 						generateTreeInner(node.addChild(info), level+1, model);
 					}
@@ -82,7 +92,7 @@ public class SqlQueryTables implements TreeInspector<RelationInfo>{
 			list = model.one2many.get(node.data().clazz);
 			if(list!=null && !list.isEmpty()){
 				for(LRelation rel:list){
-					if(classes.contains(rel.getRelClass())){
+					if(relationClasses.contains(rel.getRelClass())){
 						RelationInfo info = new RelationInfo(rel.getRelClass(), rel, class2alias.get(rel.getRelClass().getName()));
 						generateTreeInner(node.addChild(info), level+1, model);
 					}
@@ -92,27 +102,47 @@ public class SqlQueryTables implements TreeInspector<RelationInfo>{
 	}
 	
 	@Override
-	public void inspect(TreeNode<RelationInfo> node) {
+	public boolean inspect(TreeNode<RelationInfo> node, int level) {
 		LClass clazz = node.data().clazz;
 		LRelation relation = node.data().relation;
 		String alias = node.data().alias;
 		if(relation!=null){
-			boolean isMany2one = relation.getMainField().isManyToOne();
-			TreeNode<RelationInfo> parent = node.getParent();
-			text.append(" LEFT JOIN ")
-				.append(clazz.getTable()).append(' ').append(alias);
-			text.append(" ON ");
-			if(isMany2one){
+			if(relation.getType() == LRelation.MANY2ONE){
+				TreeNode<RelationInfo> parent = node.getParent();
+				text.append(" LEFT JOIN ")
+					.append(clazz.getTable()).append(' ').append(alias);
+				text.append(" ON ");
 				text.append(parent.data().alias).append('.').append(relation.getMainField().column)
 					.append('=')
 					.append(alias).append('.').append(clazz.getId().column);
+	//			}else{
+	//				text.append(parent.data().alias).append('.').append(relation.getMainClass().getId().column)
+	//					.append('=')
+	//					.append(alias).append('.').append(relation.getRelField().column);
+	//			}
+				return true;
 			}else{
-				text.append(parent.data().alias).append('.').append(relation.getMainClass().getId().column)
-					.append('=')
-					.append(alias).append('.').append(relation.getRelField().column);
-			}
+				LClass target = clazz;
+				Set<LClass> relations = new HashSet<LClass>();
+				findRelations(node, relations);  
+				SqlSubQuery q = new SqlSubQuery(target, relations, relation.getMainField(), relation.getRelField());
+				subQueries.add(q);
+				return false;
+			}	
 		}else{
 			text.append(clazz.getTable()).append(' ').append(alias);
+			return true;
+		}
+	}
+	
+	private void findRelations(TreeNode<RelationInfo> node, Set<LClass> array){
+		if(!array.contains(node.data().clazz)){
+			array.add(node.data().clazz);
+		}
+		if(node.getChilds()!=null){
+			for(TreeNode<RelationInfo> child:node.getChilds()){
+				findRelations(child, array);
+			}
 		}
 	}
 	
@@ -144,7 +174,10 @@ public class SqlQueryTables implements TreeInspector<RelationInfo>{
 		return targetClass;
 	}
 	
-	public int allClassesCount(){
-		return classes.size();
+	public int relatedCount(){
+		return relationClasses.size();
+	}
+	public List<SqlSubQuery> getSubQueries() {
+		return subQueries;
 	}
 }

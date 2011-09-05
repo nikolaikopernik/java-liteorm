@@ -1,8 +1,11 @@
 package com.liteorm.test;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import javax.sql.DataSource;
 
 import junit.framework.TestCase;
 
@@ -34,6 +37,8 @@ public class LiteORMTest extends TestCase{
 		dataSource.setPassword("1111");
 		
 		LiteORM DB = new LiteORMImpl(mapfiles, dataSource);
+		clear(dataSource);
+		
 		
 		logger.info("** Start tests...");
 		logger.info("*************************************************");
@@ -50,6 +55,7 @@ public class LiteORMTest extends TestCase{
 	
 	@SuppressWarnings("unchecked")
 	private void simpleOperationsTest(LiteORM DB){
+		logger.info("");
 		logger.info("** Simple class operations...");
 		logger.info("**** insert...");
 		Host yandex = new Host("market.yandex.ru",(short)1);
@@ -91,6 +97,7 @@ public class LiteORMTest extends TestCase{
 	
 	@SuppressWarnings("unchecked")
 	private void simpleBulkOperations(LiteORM DB){
+		logger.info("");
 		logger.info("** Simple bulk operations...");
 		logger.info("**** bulk insert...");
 		List<Host> hosts = new ArrayList<Host>(100);
@@ -123,6 +130,9 @@ public class LiteORMTest extends TestCase{
 	}
 	
 	private void one2manyTest(LiteORM DB){
+		logger.info("");
+		logger.info("** One2many relation tests...");
+		logger.info("*** insert...");
 		Host yandex = new Host("market.yandex.ru",(short)1);
 		DB.insert(yandex);
 		Url url = new Url("http://testurl.ru", yandex);
@@ -137,10 +147,27 @@ public class LiteORMTest extends TestCase{
 		List<Property> plist = DB.select("from Property where object=?", o.getObjectId());
 		assertEquals(3, plist.size());
 		
+		logger.info("*** select...");
+		List<Object> olist = DB.select("from Object, Property");
+		assertTrue(olist.size()>0);
+		Object saved = olist.get(0);
+		assertNotNull(saved.getProperties());
+		assertEquals(3, saved.getProperties().size());
+		
+		logger.info("*** delete...");
 		DB.delete(o);
 		plist = DB.select("from Property where object=?", o.getObjectId());
 		assertEquals(0, plist.size());
 		
+	}
+	
+	private void clear(DataSource ds) throws Exception{
+		Connection c = ds.getConnection();
+		c.prepareStatement("DELETE from catalogues").execute();
+		c.prepareStatement("DELETE from properties").execute();
+		c.prepareStatement("DELETE from objects").execute();
+		c.prepareStatement("DELETE from urls").execute();
+		c.prepareStatement("DELETE from hosts").execute();
 	}
 
 }

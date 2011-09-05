@@ -83,7 +83,7 @@ public class LField {
 			setter.invoke(entity, value);
 		}catch(Exception e){
 			e.printStackTrace();
-			throw new LInternalException("Error invoking setter for "+parentClass.getName()+"."+name);
+			throw new LInternalException("Error invoking setter for "+parentClass.getName()+"."+name, e);
 		}
 	}
 	
@@ -91,7 +91,7 @@ public class LField {
 		try{
 			return getter.invoke(entity);
 		}catch (Exception e) {
-			throw new LInternalException("Error invoking getter for "+parentClass.getName()+"."+name);
+			throw new LInternalException("Error invoking getter for "+parentClass.getName()+"."+name, e);
 		}
 	}
 }
