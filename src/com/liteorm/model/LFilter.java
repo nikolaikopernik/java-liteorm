@@ -7,6 +7,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Stack;
 
+import org.springframework.jdbc.support.rowset.SqlRowSet;
+
+import com.liteorm.query.SqlSelectQuery;
+
 /**
  * Фильтр для запроса полей и загрузки информаци из колонок в поля
  * @author kopernik
@@ -30,7 +34,7 @@ public class LFilter {
 		}
 	}
 	
-	public LFilter(List<LClass> classes, SqlQueryTables tables) {
+	public LFilter(List<LClass> classes, SqlSelectQuery tables) {
 		LClass target = classes.get(0);
 		String alias = tables.class2alias(target.getName());
 		for(LField f:target.getOrder()){
@@ -55,7 +59,7 @@ public class LFilter {
 	 * @param entity
 	 * @throws Exception
 	 */
-	public void readSimpleResult(ResultSet set, Object entity) throws Exception{
+	public void readSimpleResult(SqlRowSet set, Object entity) throws Exception{
 		int idx=1;
 		int toendrelation = 1000;
 		Stack<Object> stack = new Stack<Object>();
@@ -93,7 +97,7 @@ public class LFilter {
 	}
 	
 	
-	private void setValue(ResultSet set, int idx, Object entity, LField field) throws Exception{
+	private void setValue(SqlRowSet set, int idx, Object entity, LField field) throws Exception{
 		if(entity!=null){
 			Object value = null;
 			Class fieldClass  = field.type;
@@ -109,7 +113,7 @@ public class LFilter {
 	}
 	
 	
-	private void loadRelationFields(LClass clazz, List<LClass> classes, SqlQueryTables tables){
+	private void loadRelationFields(LClass clazz, List<LClass> classes, SqlSelectQuery tables){
 		String alias = tables.class2alias(clazz.getName());
 		for(LField f:clazz.getOrder()){
 			if(f.isProperty() || f.isID()){

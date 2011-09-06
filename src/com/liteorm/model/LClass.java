@@ -4,9 +4,9 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
-import com.liteorm.LUtils;
 import com.liteorm.exception.LIncorrectDataException;
 import com.liteorm.exception.LInternalException;
+import com.liteorm.util.LUtils;
 
 /**
  * Класс для хранения настроек маппинга классов
@@ -42,7 +42,9 @@ public class LClass {
 				order.add(0,f);
 			}else{
 				order.add(f);
-				countFieldsUPD++;
+				if(!f.isOneToMany()){
+					countFieldsUPD++;
+				}
 			}
 			name2Fields.put(f.name, f);
 			column2Fields.put(f.column, f);

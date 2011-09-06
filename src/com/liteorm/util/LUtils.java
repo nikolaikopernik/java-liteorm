@@ -1,4 +1,4 @@
-package com.liteorm;
+package com.liteorm.util;
 
 import java.util.HashMap;
 import java.util.Random;

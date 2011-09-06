@@ -1,4 +1,4 @@
-package com.liteorm.model.tree;
+package com.liteorm.util;
 
 import java.util.LinkedList;
 import java.util.List;

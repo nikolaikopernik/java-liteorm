@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -14,14 +15,19 @@ import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.rowset.SqlRowSet;
 
 import com.liteorm.configuration.LConfigurationParser;
 import com.liteorm.exception.LConfigurationException;
 import com.liteorm.model.LClass;
 import com.liteorm.model.LModel;
 import com.liteorm.model.LRelation;
-import com.liteorm.model.SqlQuery;
-import com.liteorm.model.SqlSubQuery;
+import com.liteorm.query.SqlDeleteQuery;
+import com.liteorm.query.SqlInsertQuery;
+import com.liteorm.query.SqlQuery;
+import com.liteorm.query.SqlSelectQuery;
+import com.liteorm.query.SqlSubQuery;
+import com.liteorm.query.SqlUpdateQuery;
 import com.liteorm.sql.SQL;
 
 public class LiteORMImpl implements LiteORM{
@@ -32,6 +38,9 @@ public class LiteORMImpl implements LiteORM{
 	private LModel model = null;
 	private DataSource dataSource;
 	private SQL sqlHolder;
+	
+	private HashMap<String, SqlQuery> lqueriesCache = new HashMap<String, SqlQuery>();
+	
 	
 	public LiteORMImpl(){
 		// TODO Auto-generated constructor stub
@@ -61,12 +70,12 @@ public class LiteORMImpl implements LiteORM{
 	@Override
 	public void insert(Object entity){
 		Class clazz = entity.getClass();
-		SqlQuery query = null;
+		SqlInsertQuery query = null;
 		try{
-			query = model.generateInsertQuery(clazz, entity);
+			query = new SqlInsertQuery(clazz, entity, model);
 			int id = sqlHolder.insert(query);
-			model.setIds(clazz, entity, id);
-			List<LRelation> relations = model.one2many.get(query.targetClass);
+			query.setIds(entity, id);
+			List<LRelation> relations = model.one2many.get(query.getTargetClass());
 			if(relations != null){
 				for(LRelation relation:relations){
 					Set set = model.updateOne2ManyKeyField(entity, relation);
@@ -80,8 +89,8 @@ public class LiteORMImpl implements LiteORM{
 	}
 	
 	@Override
-	public  List select(String sql, Object ... objects){
-		return selectInner(sql, 0, objects);
+	public  List select(String lql, Object ... objects){
+		return selectInner(lql, 0, objects);
 	}
 	
 	@Override
@@ -94,25 +103,25 @@ public class LiteORMImpl implements LiteORM{
 	}
 	
 	@SuppressWarnings("unchecked")
-	private List selectInner(String sql, int n, Object ... objects){
+	private List selectInner(String lql, int n, Object ... objects){
 		try{
-			SqlQuery query = model.generateSelectQuery(sql,n);
-			query.args = objects;
-			ResultSet set = sqlHolder.select(query);
+			SqlSelectQuery query = new SqlSelectQuery(lql, n, model);
+			query.setArgs(objects);
+			SqlRowSet set = sqlHolder.select(query);
 			List result = new ArrayList();
 			while(set.next()){
-				Object o = query.targetClass.getClazz().newInstance();
-				query.filter.readSimpleResult(set, o);
+				Object o = query.getTargetClass().getClazz().newInstance();
+				query.getFilter().readSimpleResult(set, o);
 				result.add(o);
 			}
 
-			if(query.subQueries!=null && !query.subQueries.isEmpty()){
+			if(query.getSubQueries()!=null && !query.getSubQueries().isEmpty()){
 				for(Object o:result){
-					for(SqlSubQuery q:query.subQueries){
+					for(SqlSubQuery q:query.getSubQueries()){
 						q.newObject(o);
 					}
 				}
-				for(SqlSubQuery q:query.subQueries){
+				for(SqlSubQuery q:query.getSubQueries()){
 					List subResult = select(q.getHql(), q.generateParam());
 					q.setValues(subResult);
 				}
@@ -140,7 +149,7 @@ public class LiteORMImpl implements LiteORM{
 					}
 				}
 			}
-			query = model.generateDeleteQuery(clazz, entity);
+			query = new SqlDeleteQuery(targetClass, entity, model);
 			int id = sqlHolder.update(query);
 		}catch (Exception e) {
 			e.printStackTrace();
@@ -153,7 +162,7 @@ public class LiteORMImpl implements LiteORM{
 		Class clazz = entity.getClass();
 		SqlQuery query = null;
 		try{
-			query = model.generateUpdateQuery(clazz, entity);
+			query = new SqlUpdateQuery(clazz, entity, model);
 			int id = sqlHolder.update(query);
 		}catch (Exception e) {
 			e.printStackTrace();
@@ -167,14 +176,25 @@ public class LiteORMImpl implements LiteORM{
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
 			try{
-				List<SqlQuery> queries = model.generateBulkInsertQuery(clazz, entities, BULK_SIZE_LIMIT);
+				List<SqlInsertQuery> queries = SqlInsertQuery.generateBulkInsertQuery(clazz, entities, BULK_SIZE_LIMIT, model);
 				iterator = entities.iterator();
 				for(SqlQuery query:queries){
-					ResultSet set = sqlHolder.insertBulk(query);
+					SqlRowSet set = sqlHolder.insertBulk(query);
 					int i =0;
 					while(iterator.hasNext() && i<BULK_SIZE_LIMIT && set.next()){
 						T o = iterator.next();
-						query.filter.readSimpleResult(set, o);
+						query.getFilter().readSimpleResult(set, o);
+					}
+				}
+				// позаботимся о сохранении one2many связей
+				List<LRelation> relations = model.one2many.get(model.findClass(clazz));
+				if(relations != null){
+					for(LRelation relation:relations){
+						Set relset = new HashSet(); 
+						for(T entity:entities){
+							relset.addAll(model.updateOne2ManyKeyField(entity, relation));
+						}
+						bulkInsert(relset);
 					}
 				}
 			}catch (Exception e) {
@@ -190,7 +210,7 @@ public class LiteORMImpl implements LiteORM{
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
 			try{
-				List<SqlQuery> queries = model.generateBulkUpdateQuery(clazz, entities, BULK_SIZE_LIMIT);
+				List<SqlQuery> queries = SqlUpdateQuery.generateBulkUpdateQuery(clazz, entities, BULK_SIZE_LIMIT, model);
 				iterator = entities.iterator();
 				for(SqlQuery query:queries){
 					int n = sqlHolder.update(query);
@@ -208,7 +228,7 @@ public class LiteORMImpl implements LiteORM{
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
 			try{
-				List<SqlQuery> queries = model.generateBulkDeleteQuery(clazz, entities, BULK_SIZE_LIMIT);
+				List<SqlQuery> queries = SqlDeleteQuery.generateBulkDeleteQuery(clazz, entities, BULK_SIZE_LIMIT, model);
 				for(SqlQuery query:queries){
 					int n = sqlHolder.update(query);
 				}

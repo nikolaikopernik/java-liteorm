@@ -1,4 +1,4 @@
-package com.liteorm.model;
+package com.liteorm.query;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -9,6 +9,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import com.liteorm.exception.LInternalException;
+import com.liteorm.model.LClass;
+import com.liteorm.model.LField;
 
 public class SqlSubQuery {
 	private static String alias = "_a50";

@@ -1,38 +1,92 @@
-package com.liteorm.model;
+package com.liteorm.query;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.log4j.Logger;
 
 import com.liteorm.LQLParser;
 import com.liteorm.exception.LQueryParsingException;
-import com.liteorm.model.tree.RelationInfo;
-import com.liteorm.model.tree.Tree;
-import com.liteorm.model.tree.TreeInspector;
-import com.liteorm.model.tree.TreeNode;
+import com.liteorm.model.LClass;
+import com.liteorm.model.LFilter;
+import com.liteorm.model.LModel;
+import com.liteorm.model.LRelation;
+import com.liteorm.util.RelationInfo;
+import com.liteorm.util.Tree;
+import com.liteorm.util.TreeInspector;
+import com.liteorm.util.TreeNode;
 
-/**
- * Вспомогательный класс для парсинга запросов
- * Строит дерево зависимостей, генерирует на основании него SQL
- * генерирует фильтры
- * @author kopernik
- *
- */
-public class SqlQueryTables implements TreeInspector<RelationInfo>{
+public class SqlSelectQuery extends SqlQuery implements TreeInspector<RelationInfo>{
+	private static final Logger logger = Logger.getLogger(SqlSelectQuery.class);
+	
 	private List<LClass> relationClasses = new LinkedList<LClass>();
 	private List<LClass> classes = new LinkedList<LClass>();
 	private HashMap<String, LClass> classesH = new HashMap<String, LClass>();
 	private HashMap<String, String> alias2class = new HashMap<String, String>();
 	private HashMap<String, String> class2alias = new HashMap<String, String>();
-	private LClass targetClass = null;
 	private StringBuilder text = null;
-	private List<SqlSubQuery> subQueries = new ArrayList<SqlSubQuery>(1);
 	
-	public SqlQueryTables(String fromPart, LModel model) throws LQueryParsingException{
+	public SqlSelectQuery(String hql, int n, LModel model) throws LQueryParsingException{
+		String[] parts = LQLParser.parseSelect(hql);
+		String SELECT = parts[0];
+		String FROM = parts[1];
+		String WHERE = parts[2];
+		String sqlSELECT = "";
+		String sqlFROM = "";
+		String sqlWHERE = "";
+
+		generateRelationTree(FROM, model);
+
+		// Анализируем поля в WHERE
+		if (!WHERE.isEmpty()) {
+			sqlWHERE = LQLParser.translateWHERE(WHERE, this);
+		}
+
+		if (logger.isDebugEnabled()) {
+			logger.debug("LQL:------------------------------------------------");
+			logger.debug("LQL:   FROM");
+			for (String alias : allAliases()) {
+				String table = alias2class(alias);
+				LClass clazz = findClass(table);
+				logger.debug("LQL     " + table + " " + alias + " -> "
+						+ clazz.getTable() + " " + alias);
+			}
+			if (!WHERE.isEmpty()) {
+				logger.debug("LQL:   WHERE");
+				logger.debug("LQL:     " + WHERE);
+				logger.debug("LQL:     ->");
+				logger.debug("LQL:     " + sqlWHERE);
+			}
+		}
+
+		String limitSql = "";
+		if (n > 0) {
+			limitSql = " limit " + n;
+		}
+
+		LFilter filter = null;
+		if (relatedCount() > 0) {
+			filter = new LFilter(allClasses(), this);
+		} else {
+			filter = new LFilter(getTargetClass());
+		}
+
+		if (!sqlWHERE.isEmpty()) {
+			setSql(String.format("SELECT %s FROM %s WHERE %s%s",
+					filter.generateSelectColumns(), generateSQL(),
+					sqlWHERE, limitSql));
+		} else {
+			setSql(String.format("SELECT %s FROM %s%s",
+					filter.generateSelectColumns(), generateSQL(),
+					limitSql));
+		}
+		setFilter(filter);
+	}
+	
+	private void generateRelationTree(String fromPart, LModel model) throws LQueryParsingException{
 		List<String> classOrder = new LinkedList<String>();
 		int i = 50;
 		LQLParser.parseFrom(fromPart, classOrder, class2alias);
@@ -63,16 +117,16 @@ public class SqlQueryTables implements TreeInspector<RelationInfo>{
 				alias2class.put(class2alias.get(name), name);
 			}
 		}
-		targetClass = classes.get(0);
+		setTargetClass(classes.get(0));
 		
 		Tree<RelationInfo> tree = generateTree(model);
 		text = new StringBuilder();
+		setSubQueries(new LinkedList<SqlSubQuery>());
 		tree.inspect(this);
 	}
 	
-	
 	private Tree<RelationInfo> generateTree(LModel model){
-		RelationInfo target = new RelationInfo(targetClass, class2alias.get(targetClass.getName()));
+		RelationInfo target = new RelationInfo(getTargetClass(), class2alias.get(getTargetClass().getName()));
 		Tree<RelationInfo> tree = new Tree<RelationInfo>(target);
 		generateTreeInner(tree.root(), 1, model);
 		return tree;
@@ -115,18 +169,13 @@ public class SqlQueryTables implements TreeInspector<RelationInfo>{
 				text.append(parent.data().alias).append('.').append(relation.getMainField().column)
 					.append('=')
 					.append(alias).append('.').append(clazz.getId().column);
-	//			}else{
-	//				text.append(parent.data().alias).append('.').append(relation.getMainClass().getId().column)
-	//					.append('=')
-	//					.append(alias).append('.').append(relation.getRelField().column);
-	//			}
 				return true;
 			}else{
 				LClass target = clazz;
 				Set<LClass> relations = new HashSet<LClass>();
 				findRelations(node, relations);  
 				SqlSubQuery q = new SqlSubQuery(target, relations, relation.getMainField(), relation.getRelField());
-				subQueries.add(q);
+				getSubQueries().add(q);
 				return false;
 			}	
 		}else{
@@ -170,14 +219,8 @@ public class SqlQueryTables implements TreeInspector<RelationInfo>{
 		return alias2class.keySet();
 	}
 	
-	public LClass getTargetClass() {
-		return targetClass;
-	}
-	
 	public int relatedCount(){
 		return relationClasses.size();
 	}
-	public List<SqlSubQuery> getSubQueries() {
-		return subQueries;
-	}
+	
 }

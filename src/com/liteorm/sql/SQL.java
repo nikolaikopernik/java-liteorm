@@ -8,7 +8,11 @@ import java.sql.SQLException;
 import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
-import com.liteorm.model.SqlQuery;
+import org.springframework.jdbc.core.SqlRowSetResultSetExtractor;
+import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.jdbc.support.rowset.SqlRowSet;
+
+import com.liteorm.query.SqlQuery;
 
 /**
  * Здесь происходят непосредственные запросы
@@ -19,51 +23,62 @@ import com.liteorm.model.SqlQuery;
 public class SQL {
 	public static final Logger logger = Logger.getLogger(SQL.class);
 	private DataSource dataSource;
-	private Connection connection;
 	
 	public SQL(DataSource dataSource) {
 		this.dataSource = dataSource;
 	}
 	
 	public int insert(SqlQuery query) throws SQLException{
-		logger.debug("SQL: "+query.sql);
-		PreparedStatement st =  getConnection().prepareStatement(query.sql);
-		for(int i=0;i<query.args.length;i++){
-			setParameter(i+1,st, query.args[i]);
+		logger.debug("SQL: "+query.getSql());
+		Connection connection = getConnection();
+		PreparedStatement st =  connection.prepareStatement(query.getSql());
+		for(int i=0;i<query.getArgs().length;i++){
+			setParameter(i+1,st, query.getArgs()[i]);
 		}
 		st.executeUpdate();
 		ResultSet set = st.getGeneratedKeys();
+		releaseConnection(connection);		
 		set.first();
 		return set.getInt(1);
 	}
 	
-	public ResultSet insertBulk(SqlQuery query) throws SQLException{
-		logger.debug("SQL: "+query.sql);
-		PreparedStatement st = getConnection().prepareStatement(query.sql);
-		for(int i=0;i<query.args.length;i++){
-			setParameter(i+1,st, query.args[i]);
+	public SqlRowSet insertBulk(SqlQuery query) throws SQLException{
+		logger.debug("SQL: "+query.getSql());
+		Connection connection = getConnection();
+		PreparedStatement st =  connection.prepareStatement(query.getSql());
+		for(int i=0;i<query.getArgs().length;i++){
+			setParameter(i+1,st, query.getArgs()[i]);
 		}
 		st.executeUpdate();
-		ResultSet set = st.getGeneratedKeys();
+		ResultSet result = st.getGeneratedKeys();
+		SqlRowSet set =  (SqlRowSet) new SqlRowSetResultSetExtractor().extractData(result);
+		releaseConnection(connection);
 		return set;
 	}
 	
 	public int update(SqlQuery query) throws SQLException{
-		logger.debug(query.sql);
-		PreparedStatement st = getConnection().prepareStatement(query.sql);
-		for(int i=0;i<query.args.length;i++){
-			setParameter(i+1,st, query.args[i]);
+		logger.debug(query.getSql());
+		Connection connection = getConnection();
+		PreparedStatement st =  connection.prepareStatement(query.getSql());
+		for(int i=0;i<query.getArgs().length;i++){
+			setParameter(i+1,st, query.getArgs()[i]);
 		}
-		return st.executeUpdate();
+		int idx = st.executeUpdate();
+		releaseConnection(connection);
+		return idx;
 	}
 	
-	public ResultSet select(SqlQuery query) throws SQLException{
-		logger.debug(query.sql);
-		PreparedStatement st = getConnection().prepareStatement(query.sql);
-		for(int i=0;i<query.args.length;i++){
-			setParameter(i+1,st, query.args[i]);
+	public SqlRowSet select(SqlQuery query) throws SQLException{
+		logger.debug(query.getSql());
+		Connection connection = getConnection();
+		PreparedStatement st =  connection.prepareStatement(query.getSql());
+		for(int i=0;i<query.getArgs().length;i++){
+			setParameter(i+1,st, query.getArgs()[i]);
 		}
-		return st.executeQuery();
+		ResultSet result = st.executeQuery();
+		SqlRowSet set =  (SqlRowSet) new SqlRowSetResultSetExtractor().extractData(result);
+		releaseConnection(connection);
+		return set;
 	}
 	
 	
@@ -72,9 +87,10 @@ public class SQL {
 	}
 	
 	private Connection getConnection() throws SQLException{
-		if(connection==null || connection.isClosed()){
-			connection = dataSource.getConnection();
-		}
-		return connection;
+		return DataSourceUtils.getConnection(dataSource);
+	}
+	
+	private void releaseConnection(Connection c){
+		DataSourceUtils.releaseConnection(c, dataSource);
 	}
 }

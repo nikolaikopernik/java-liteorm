@@ -1,5 +1,7 @@
 package com.liteorm.configuration;
 
+import java.io.IOException;
+import java.io.StringReader;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Date;
@@ -13,6 +15,9 @@ import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import com.liteorm.exception.LConfigurationException;
 import com.liteorm.model.LClass;
@@ -26,11 +31,25 @@ import com.liteorm.model.LField;
 public class LConfigurationParser {
 	private static final Logger logger = Logger.getLogger(LConfigurationParser.class);
 	private static DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+	private static DocumentBuilder builder = null;
+	 
+	static{
+		try{
+			builder = factory.newDocumentBuilder();
+		}catch (Exception e) {
+			logger.error("Internal xml builder error ", e);
+		}
+		builder.setEntityResolver(new EntityResolver() {
+			@Override
+			public InputSource resolveEntity(String publicId, String systemId) throws SAXException, IOException {
+				return new InputSource(new StringReader(""));
+			}
+		});
+	}
 	
 	public static List<LClass> parseConfig(String file) throws LConfigurationException{
 		Document dom = null;
 		try{
-			DocumentBuilder builder = factory.newDocumentBuilder();
 			dom = builder.parse(file);
 		}catch (Exception e) {
 			throw new LConfigurationException(e.getMessage(), file);

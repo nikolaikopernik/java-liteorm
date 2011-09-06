@@ -9,7 +9,7 @@ import org.apache.log4j.Logger;
 
 import com.liteorm.exception.LQueryParsingException;
 import com.liteorm.model.LClass;
-import com.liteorm.model.SqlQueryTables;
+import com.liteorm.query.SqlSelectQuery;
 
 /**
  * Работа со строками при парсинге запросов
@@ -67,7 +67,7 @@ public class LQLParser {
 		return parts;
 	}
 	
-	public static String translateWHERE(String where, SqlQueryTables tables) throws LQueryParsingException{
+	public static String translateWHERE(String where, SqlSelectQuery tables) throws LQueryParsingException{
 		List<String> fields = getFieldsFromWHERE(where);
 		List<String> columns = new LinkedList<String>();
 		for(String field:fields ){

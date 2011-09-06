@@ -42,10 +42,10 @@ public class LiteORMTest extends TestCase{
 		
 		logger.info("** Start tests...");
 		logger.info("*************************************************");
-		
-		simpleOperationsTest(DB);
-		
-		simpleBulkOperations(DB);
+//		
+//		simpleOperationsTest(DB);
+//		
+//		simpleBulkOperations(DB);
 		
 		one2manyTest(DB);
 		
@@ -154,10 +154,27 @@ public class LiteORMTest extends TestCase{
 		assertNotNull(saved.getProperties());
 		assertEquals(3, saved.getProperties().size());
 		
+		logger.info("*** bulk insert...");
+		olist = new ArrayList<Object>();
+		for(int i = 0; i<100;i++){
+			o = new Object("Test object "+i, 10f*i, url);
+			props = new HashSet<Property>();
+			props.add(new Property("Picture","http://forobject-"+i));
+			props.add(new Property("Brand","Transcend-"+i));
+			props.add(new Property("Screen","15x"+i));
+			o.setProperties(props);
+			olist.add(o);
+		}
+		DB.bulkInsert(olist);
+		plist = DB.select("from Property");
+		assertTrue(plist.size()>100);
+		
 		logger.info("*** delete...");
 		DB.delete(o);
 		plist = DB.select("from Property where object=?", o.getObjectId());
 		assertEquals(0, plist.size());
+		
+		
 		
 	}
 	
