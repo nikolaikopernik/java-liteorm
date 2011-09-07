@@ -1,6 +1,5 @@
 package com.liteorm;
 
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -10,10 +9,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import javax.naming.ConfigurationException;
 import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 
@@ -30,7 +29,7 @@ import com.liteorm.query.SqlSubQuery;
 import com.liteorm.query.SqlUpdateQuery;
 import com.liteorm.sql.SQL;
 
-public class LiteORMImpl implements LiteORM{
+public class LiteORMImpl implements LiteORM, InitializingBean{
 	private Logger logger = Logger.getLogger(LiteORMImpl.class);
 	
 	private Integer BULK_SIZE_LIMIT = 1000;
@@ -38,8 +37,9 @@ public class LiteORMImpl implements LiteORM{
 	private LModel model = null;
 	private DataSource dataSource;
 	private SQL sqlHolder;
+	public JdbcTemplate jdbc;
 	
-	private HashMap<String, SqlQuery> lqueriesCache = new HashMap<String, SqlQuery>();
+	private HashMap<String, SqlSelectQuery> lqueriesCache = new HashMap<String, SqlSelectQuery>();
 	
 	
 	public LiteORMImpl(){
@@ -49,6 +49,11 @@ public class LiteORMImpl implements LiteORM{
 	public LiteORMImpl(String[] mappingFiles, DataSource dataSource) throws LConfigurationException{
 		this.mappingFiles = mappingFiles;
 		this.dataSource = dataSource;
+		afterPropertiesSet();
+	}
+	
+	@Override
+	public void afterPropertiesSet()throws LConfigurationException {
 		configure();
 	}
 	
@@ -57,6 +62,8 @@ public class LiteORMImpl implements LiteORM{
 		if(dataSource==null){
 			throw new LConfigurationException("DataSource field is null.");
 		}
+		jdbc = new JdbcTemplate(dataSource);
+		
 		sqlHolder = new SQL(dataSource);
 		model = new LModel();
 		List<LClass> list = new LinkedList<LClass>();
@@ -104,8 +111,13 @@ public class LiteORMImpl implements LiteORM{
 	
 	@SuppressWarnings("unchecked")
 	private List selectInner(String lql, int n, Object ... objects){
+		boolean exist = true;
+		SqlSelectQuery query = findInCache(lql);
 		try{
-			SqlSelectQuery query = new SqlSelectQuery(lql, n, model);
+			if(query == null){
+				exist = false;
+				query = new SqlSelectQuery(lql, n, model);
+			}
 			query.setArgs(objects);
 			SqlRowSet set = sqlHolder.select(query);
 			List result = new ArrayList();
@@ -125,6 +137,9 @@ public class LiteORMImpl implements LiteORM{
 					List subResult = select(q.getHql(), q.generateParam());
 					q.setValues(subResult);
 				}
+			}
+			if(!exist){
+				putInCache(lql, query);
 			}
 			return result;
 		}catch (Exception e) {
@@ -201,6 +216,22 @@ public class LiteORMImpl implements LiteORM{
 				e.printStackTrace();
 				return;
 			}
+		}
+	}
+	
+	private SqlSelectQuery findInCache(String lql){
+		synchronized (lqueriesCache) {
+			SqlSelectQuery query = lqueriesCache.get(lql);
+			if(query!=null){
+				return new SqlSelectQuery(query);
+			}	
+		}
+		return null;
+	}
+	
+	private void putInCache(String lql, SqlSelectQuery q){
+		synchronized (lqueriesCache) {
+			lqueriesCache.put(lql, q);
 		}
 	}
 	

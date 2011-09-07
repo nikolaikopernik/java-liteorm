@@ -42,7 +42,7 @@ public class LModel {
 		for(LClass clazz:list){
 			for(LField field:clazz.getOrder()){
 				if(field.isRelation()){
-					LClass relClass = nameFullHash.get(field.relationClassName);
+					LClass relClass =  findClassByName(field.relationClassName);
 					if(relClass==null){
 						throw new LConfigurationException("Cannot find relation class "+field.relationClassName);
 					}

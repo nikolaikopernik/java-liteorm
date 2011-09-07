@@ -19,6 +19,11 @@ public class SqlSubQuery {
 	private LField base;
 	private LField related;
 	
+	public SqlSubQuery(SqlSubQuery q) {
+		this.hql = q.hql;
+		this.base = q.base;
+		this.related = q.related;
+	}
 	
 	public SqlSubQuery(LClass target, Set<LClass> relations, LField base, LField related) {
 		// query = from <target> _a50,{<relations>} where _a50.related in (?)

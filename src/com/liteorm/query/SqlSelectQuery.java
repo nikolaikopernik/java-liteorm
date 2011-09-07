@@ -1,5 +1,6 @@
 package com.liteorm.query;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -28,6 +29,20 @@ public class SqlSelectQuery extends SqlQuery implements TreeInspector<RelationIn
 	private HashMap<String, String> alias2class = new HashMap<String, String>();
 	private HashMap<String, String> class2alias = new HashMap<String, String>();
 	private StringBuilder text = null;
+	
+	
+	public SqlSelectQuery(SqlSelectQuery q) {
+		setSql(q.getSql());
+		setTargetClass(q.getTargetClass());
+		setFilter(q.getFilter());
+		if(q.getSubQueries()!=null){
+			List<SqlSubQuery> list = new ArrayList<SqlSubQuery>(q.getSubQueries().size());
+			for(SqlSubQuery sub:q.getSubQueries()){
+				list.add(new SqlSubQuery(sub));
+			}
+			setSubQueries(list);
+		}
+	}
 	
 	public SqlSelectQuery(String hql, int n, LModel model) throws LQueryParsingException{
 		String[] parts = LQLParser.parseSelect(hql);
@@ -221,6 +236,18 @@ public class SqlSelectQuery extends SqlQuery implements TreeInspector<RelationIn
 	
 	public int relatedCount(){
 		return relationClasses.size();
+	}
+	
+	public HashMap<String, String> getAlias2class() {
+		return alias2class;
+	}
+	
+	public HashMap<String, String> getClass2alias() {
+		return class2alias;
+	}
+	
+	public List<LClass> getClasses() {
+		return classes;
 	}
 	
 }

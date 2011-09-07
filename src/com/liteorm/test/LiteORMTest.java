@@ -42,10 +42,10 @@ public class LiteORMTest extends TestCase{
 		
 		logger.info("** Start tests...");
 		logger.info("*************************************************");
-//		
-//		simpleOperationsTest(DB);
-//		
-//		simpleBulkOperations(DB);
+		
+		simpleOperationsTest(DB);
+		
+		simpleBulkOperations(DB);
 		
 		one2manyTest(DB);
 		
