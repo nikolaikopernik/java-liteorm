@@ -112,6 +112,9 @@ public class LFilter {
 			}else{
 				value = set.getObject(idx);
 			}
+			if(set.wasNull()){
+				value = null;
+			}
 			field.setValue(value, entity);		
 		}
 	}
