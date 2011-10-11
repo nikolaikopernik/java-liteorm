@@ -65,7 +65,12 @@ public class LConfigurationParser {
 			Element row = (Element)classes.item(i);
 			String name = row.getAttribute("name");
 			String table = row.getAttribute("table");
-			String fullnameClass = pack+'.'+name;
+			String fullnameClass = null;
+			if(name.startsWith(pack)){
+				fullnameClass = name;
+			}else{
+				fullnameClass = pack+'.'+name;
+			}
 			Class clazz = null;
 			try{
 				clazz = Class.forName(fullnameClass);
