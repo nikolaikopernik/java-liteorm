@@ -1,6 +1,7 @@
 package com.liteorm.configuration;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -50,7 +51,9 @@ public class LConfigurationParser {
 	public static List<LClass> parseConfig(String file) throws LConfigurationException{
 		Document dom = null;
 		try{
-			dom = builder.parse(file);
+			InputStream is = LConfigurationParser.class.getClassLoader().getResourceAsStream(file);
+			dom = builder.parse(is);
+			is.close();
 		}catch (Exception e) {
 			throw new LConfigurationException(e.getMessage(), file);
 		}
@@ -157,7 +160,7 @@ public class LConfigurationParser {
 	}
 	
 	private static Class findClass(String name) throws LConfigurationException{
-		if("string".equals(name)){
+		if("string".equals(name) || "text".equals(name)){
 			return String.class;
 		}else if("integer".equals(name)){
 			return Integer.class;

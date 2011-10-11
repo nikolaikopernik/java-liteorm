@@ -18,6 +18,7 @@ import org.springframework.jdbc.support.rowset.SqlRowSet;
 
 import com.liteorm.configuration.LConfigurationParser;
 import com.liteorm.exception.LConfigurationException;
+import com.liteorm.exception.LQueryExecuteException;
 import com.liteorm.model.LClass;
 import com.liteorm.model.LModel;
 import com.liteorm.model.LRelation;
@@ -75,7 +76,7 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 	}
 	
 	@Override
-	public void insert(Object entity){
+	public void insert(Object entity) throws LQueryExecuteException{
 		Class clazz = entity.getClass();
 		SqlInsertQuery query = null;
 		try{
@@ -90,18 +91,17 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 				}
 			}
 		}catch (Exception e) {
-			e.printStackTrace();
-			return;
+			throw new LQueryExecuteException(e);
 		}
 	}
 	
 	@Override
-	public  List select(String lql, Object ... objects){
+	public  List select(String lql, Object ... objects)  throws LQueryExecuteException{
 		return selectInner(lql, 0, objects);
 	}
 	
 	@Override
-	public Object selectFirst(String lql, Object... objects) {
+	public Object selectFirst(String lql, Object... objects) throws LQueryExecuteException{
 		List list = selectInner(lql, 1, objects);
 		if(list.size()>0){
 			return list.get(0);
@@ -110,7 +110,7 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 	}
 	
 	@SuppressWarnings("unchecked")
-	private List selectInner(String lql, int n, Object ... objects){
+	private List selectInner(String lql, int n, Object ... objects) throws LQueryExecuteException{
 		boolean exist = true;
 		SqlSelectQuery query = findInCache(lql);
 		try{
@@ -143,13 +143,12 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 			}
 			return result;
 		}catch (Exception e) {
-			logger.error("Error parsing query",e);
+			throw new LQueryExecuteException(e);
 		}
-		return null;
 	}
 	
 	@Override
-	public void delete(Object entity) {
+	public void delete(Object entity) throws LQueryExecuteException {
 		Class clazz = entity.getClass();
 		SqlQuery query = null;
 		try{
@@ -167,26 +166,24 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 			query = new SqlDeleteQuery(targetClass, entity, model);
 			int id = sqlHolder.update(query);
 		}catch (Exception e) {
-			e.printStackTrace();
-			return;
+			throw new LQueryExecuteException(e);
 		}
 	}
 	
 	@Override
-	public void update(Object entity) {
+	public void update(Object entity) throws LQueryExecuteException {
 		Class clazz = entity.getClass();
 		SqlQuery query = null;
 		try{
 			query = new SqlUpdateQuery(clazz, entity, model);
 			int id = sqlHolder.update(query);
 		}catch (Exception e) {
-			e.printStackTrace();
-			return;
+			throw new LQueryExecuteException(e);
 		}
 	}
 	
 	@Override
-	public <T> void bulkInsert(Collection<T> entities) {
+	public <T> void bulkInsert(Collection<T> entities) throws LQueryExecuteException {
 		if(!entities.isEmpty()){
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
@@ -213,8 +210,7 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 					}
 				}
 			}catch (Exception e) {
-				e.printStackTrace();
-				return;
+				throw new LQueryExecuteException(e);
 			}
 		}
 	}
@@ -236,7 +232,7 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 	}
 	
 	@Override
-	public <T> void bulkUpdate(Collection<T> entities) {
+	public <T> void bulkUpdate(Collection<T> entities) throws LQueryExecuteException {
 		if(!entities.isEmpty()){
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
@@ -247,14 +243,13 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 					int n = sqlHolder.update(query);
 				}
 			}catch (Exception e) {
-				e.printStackTrace();
-				return;
+				throw new LQueryExecuteException(e);
 			}
 		}
 	}
 	
 	@Override
-	public <T> void bulkDelete(Collection<T> entities) {
+	public <T> void bulkDelete(Collection<T> entities) throws LQueryExecuteException {
 		if(!entities.isEmpty()){
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
@@ -264,8 +259,7 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 					int n = sqlHolder.update(query);
 				}
 			}catch (Exception e) {
-				e.printStackTrace();
-				return;
+				throw new LQueryExecuteException(e);
 			}
 		}
 	}

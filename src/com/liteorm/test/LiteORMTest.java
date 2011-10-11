@@ -23,11 +23,11 @@ import com.liteorm.LiteORMImpl;
  */
 public class LiteORMTest extends TestCase{
 	public static Logger logger = Logger.getLogger("test");
-	private static String[] mapfiles = new String[]{"res/catalogue.hbm.xml",
-												"res/host.hbm.xml",
-												"res/url.hbm.xml",
-												"res/qobject.hbm.xml",
-												"res/property.hbm.xml"};
+	private static String[] mapfiles = new String[]{"com/liteorm/test/res/catalogue.hbm.xml",
+												"com/liteorm/test/res/host.hbm.xml",
+												"com/liteorm/test/res/url.hbm.xml",
+												"com/liteorm/test/res/qobject.hbm.xml",
+												"com/liteorm/test/res/property.hbm.xml"};
 	
 	public void testLiteORM() throws Exception{
 		BasicDataSource dataSource = new BasicDataSource();
