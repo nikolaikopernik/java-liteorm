@@ -1,5 +1,7 @@
 package com.liteorm;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -13,8 +15,6 @@ import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.rowset.SqlRowSet;
 
 import com.liteorm.configuration.LConfigurationParser;
 import com.liteorm.exception.LConfigurationException;
@@ -38,10 +38,7 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 	private LModel model = null;
 	private DataSource dataSource;
 	private SQL sqlHolder;
-	public JdbcTemplate jdbc;
-	
 	private HashMap<String, SqlSelectQuery> lqueriesCache = new HashMap<String, SqlSelectQuery>();
-	
 	
 	public LiteORMImpl(){
 		// TODO Auto-generated constructor stub
@@ -63,8 +60,6 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 		if(dataSource==null){
 			throw new LConfigurationException("DataSource field is null.");
 		}
-		jdbc = new JdbcTemplate(dataSource);
-		
 		sqlHolder = new SQL(dataSource);
 		model = new LModel();
 		List<LClass> list = new LinkedList<LClass>();
@@ -79,19 +74,23 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 	public void insert(Object entity) throws LQueryExecuteException{
 		Class clazz = entity.getClass();
 		SqlInsertQuery query = null;
+		Connection connection = null;
 		try{
 			query = new SqlInsertQuery(clazz, entity, model);
-			int id = sqlHolder.insert(query);
+			connection = sqlHolder.getConnection();
+			int id = sqlHolder.insert(query, connection);
 			query.setIds(entity, id);
 			List<LRelation> relations = model.one2many.get(query.getTargetClass());
 			if(relations != null){
 				for(LRelation relation:relations){
 					Set set = model.updateOne2ManyKeyField(entity, relation);
-					bulkInsert(set);
+					bulkInsert(set, connection);
 				}
 			}
 		}catch (Exception e) {
 			throw new LQueryExecuteException(e);
+		}finally{
+			sqlHolder.releaseConnection(connection);
 		}
 	}
 	
@@ -113,13 +112,15 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 	private List selectInner(String lql, int n, Object ... objects) throws LQueryExecuteException{
 		boolean exist = true;
 		SqlSelectQuery query = findInCache(lql);
+		Connection connection = null;
 		try{
 			if(query == null){
 				exist = false;
 				query = new SqlSelectQuery(lql, n, model);
 			}
 			query.setArgs(objects);
-			SqlRowSet set = sqlHolder.select(query);
+			connection = sqlHolder.getConnection();
+			ResultSet set = sqlHolder.select(query, connection);
 			List result = new ArrayList();
 			while(set.next()){
 				Object o = query.getTargetClass().getClazz().newInstance();
@@ -144,6 +145,8 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 			return result;
 		}catch (Exception e) {
 			throw new LQueryExecuteException(e);
+		}finally{
+			sqlHolder.releaseConnection(connection);
 		}
 	}
 	
@@ -151,22 +154,26 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 	public void delete(Object entity) throws LQueryExecuteException {
 		Class clazz = entity.getClass();
 		SqlQuery query = null;
+		Connection connection = null;
 		try{
 			LClass targetClass = model.findClass(clazz);
 			List<LRelation> relations = model.one2many.get(targetClass);
+			connection = sqlHolder.getConnection();
 			if(relations != null){
 				for(LRelation relation:relations){
 					Object obj = relation.getMainField().getValue(entity);
 					if(obj!=null){
 						Set set = (Set)obj;
-						bulkDelete(set);
+						bulkDelete(set, connection);
 					}
 				}
 			}
 			query = new SqlDeleteQuery(targetClass, entity, model);
-			int id = sqlHolder.update(query);
+			int id = sqlHolder.update(query, connection);
 		}catch (Exception e) {
 			throw new LQueryExecuteException(e);
+		}finally{
+			sqlHolder.releaseConnection(connection);
 		}
 	}
 	
@@ -174,24 +181,36 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 	public void update(Object entity) throws LQueryExecuteException {
 		Class clazz = entity.getClass();
 		SqlQuery query = null;
+		Connection connection = null;
 		try{
 			query = new SqlUpdateQuery(clazz, entity, model);
-			int id = sqlHolder.update(query);
+			connection = sqlHolder.getConnection();
+			int id = sqlHolder.update(query, connection);
 		}catch (Exception e) {
 			throw new LQueryExecuteException(e);
+		}finally{
+			sqlHolder.releaseConnection(connection);
 		}
 	}
 	
 	@Override
 	public <T> void bulkInsert(Collection<T> entities) throws LQueryExecuteException {
+		bulkInsert(entities, null);
+	}
+	
+	private <T> void bulkInsert(Collection<T> entities, Connection conn) throws LQueryExecuteException {
 		if(!entities.isEmpty()){
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
+			Connection connection = conn;
 			try{
 				List<SqlInsertQuery> queries = SqlInsertQuery.generateBulkInsertQuery(clazz, entities, BULK_SIZE_LIMIT, model);
 				iterator = entities.iterator();
+				if(connection==null){
+					connection = sqlHolder.getConnection();
+				}
 				for(SqlQuery query:queries){
-					SqlRowSet set = sqlHolder.insertBulk(query);
+					ResultSet set = sqlHolder.insertBulk(query, connection);
 					int i =0;
 					while(iterator.hasNext() && i<BULK_SIZE_LIMIT && set.next()){
 						T o = iterator.next();
@@ -206,13 +225,16 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 						for(T entity:entities){
 							relset.addAll(model.updateOne2ManyKeyField(entity, relation));
 						}
-						bulkInsert(relset);
+						bulkInsert(relset, connection);
 					}
 				}
 			}catch (Exception e) {
 				throw new LQueryExecuteException(e);
+			}finally{
+				sqlHolder.releaseConnection(connection);
 			}
 		}
+
 	}
 	
 	private SqlSelectQuery findInCache(String lql){
@@ -236,34 +258,47 @@ public class LiteORMImpl implements LiteORM, InitializingBean{
 		if(!entities.isEmpty()){
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
+			Connection connection = null;
 			try{
 				List<SqlQuery> queries = SqlUpdateQuery.generateBulkUpdateQuery(clazz, entities, BULK_SIZE_LIMIT, model);
 				iterator = entities.iterator();
+				connection = sqlHolder.getConnection();
 				for(SqlQuery query:queries){
-					int n = sqlHolder.update(query);
+					int n = sqlHolder.update(query,connection);
 				}
 			}catch (Exception e) {
 				throw new LQueryExecuteException(e);
+			}finally{
+				sqlHolder.releaseConnection(connection);
 			}
 		}
 	}
 	
 	@Override
 	public <T> void bulkDelete(Collection<T> entities) throws LQueryExecuteException {
+		bulkDelete(entities, null);
+	}
+	
+	private <T> void bulkDelete(Collection<T> entities, Connection conn) throws LQueryExecuteException {
 		if(!entities.isEmpty()){
 			Iterator<T> iterator = entities.iterator();
 			Class clazz = iterator.next().getClass();
+			Connection connection = conn;
 			try{
 				List<SqlQuery> queries = SqlDeleteQuery.generateBulkDeleteQuery(clazz, entities, BULK_SIZE_LIMIT, model);
+				if(connection==null){
+					connection = sqlHolder.getConnection();
+				}
 				for(SqlQuery query:queries){
-					int n = sqlHolder.update(query);
+					int n = sqlHolder.update(query,connection);
 				}
 			}catch (Exception e) {
 				throw new LQueryExecuteException(e);
+			}finally{
+				sqlHolder.releaseConnection(connection);
 			}
 		}
 	}
-	
 	
 	
 	public void setMappingFiles(String[] mappingFiles) {

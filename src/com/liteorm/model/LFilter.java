@@ -7,8 +7,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Stack;
 
-import org.springframework.jdbc.support.rowset.SqlRowSet;
-
 import com.liteorm.query.SqlSelectQuery;
 
 /**
@@ -59,7 +57,7 @@ public class LFilter {
 	 * @param entity
 	 * @throws Exception
 	 */
-	public void readSimpleResult(SqlRowSet set, Object entity) throws Exception{
+	public void readSimpleResult(ResultSet set, Object entity) throws Exception{
 		int idx=1;
 		int toendrelation = 1000;
 		Stack<Object> stack = new Stack<Object>();
@@ -97,7 +95,7 @@ public class LFilter {
 	}
 	
 	
-	private void setValue(SqlRowSet set, int idx, Object entity, LField field) throws Exception{
+	private void setValue(ResultSet set, int idx, Object entity, LField field) throws Exception{
 		if(entity!=null){
 			Object value = null;
 			Class fieldClass  = field.type;
