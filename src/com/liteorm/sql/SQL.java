@@ -23,6 +23,7 @@ import com.liteorm.query.SqlQuery;
 public class SQL {
 	public static final Logger logger = Logger.getLogger(SQL.class);
 	private DataSource dataSource;
+	private SqlRowSetResultSetExtractor extractor = new SqlRowSetResultSetExtractor();
 	
 	public SQL(DataSource dataSource) {
 		this.dataSource = dataSource;
@@ -51,7 +52,7 @@ public class SQL {
 		}
 		st.executeUpdate();
 		ResultSet result = st.getGeneratedKeys();
-		SqlRowSet set =  (SqlRowSet) new SqlRowSetResultSetExtractor().extractData(result);
+		SqlRowSet set =  (SqlRowSet)extractor.extractData(result);
 		releaseConnection(connection);
 		return set;
 	}
@@ -76,7 +77,7 @@ public class SQL {
 			setParameter(i+1,st, query.getArgs()[i]);
 		}
 		ResultSet result = st.executeQuery();
-		SqlRowSet set =  (SqlRowSet) new SqlRowSetResultSetExtractor().extractData(result);
+		SqlRowSet set =  (SqlRowSet) extractor.extractData(result);
 		releaseConnection(connection);
 		return set;
 	}
