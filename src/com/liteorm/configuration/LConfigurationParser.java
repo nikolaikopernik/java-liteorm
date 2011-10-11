@@ -164,6 +164,8 @@ public class LConfigurationParser {
 			return String.class;
 		}else if("integer".equals(name)){
 			return Integer.class;
+		}else if("long".equals(name)){
+			return Long.class;
 		}else if("short".equals(name)){
 			return Short.class;
 		}else if("float".equals(name)){
