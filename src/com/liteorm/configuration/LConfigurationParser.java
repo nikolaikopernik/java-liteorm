@@ -6,12 +6,14 @@ import java.io.StringReader;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -33,7 +35,8 @@ public class LConfigurationParser {
 	private static final Logger logger = Logger.getLogger(LConfigurationParser.class);
 	private static DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 	private static DocumentBuilder builder = null;
-	 
+	private static final String[] knownClassTags = new String[]{"id","property","many-to-one","set"}; 
+	
 	static{
 		try{
 			builder = factory.newDocumentBuilder();
@@ -66,7 +69,7 @@ public class LConfigurationParser {
 			String name = row.getAttribute("name");
 			String table = row.getAttribute("table");
 			String fullnameClass = null;
-			if(name.startsWith(pack)){
+			if(name.indexOf('.')>0){
 				fullnameClass = name;
 			}else{
 				fullnameClass = pack+'.'+name;
@@ -85,7 +88,7 @@ public class LConfigurationParser {
 				for(int x=0;x<params.getLength();x++){
 					if(params.item(x) instanceof Element){
 						Element param = (Element)params.item(x);
-						LField field = parseField(methods, param);
+						LField field = parseField(methods, param, file);
 						if(field!=null){
 							fields.add(field);
 						}
@@ -99,7 +102,7 @@ public class LConfigurationParser {
 		return result;
 	}
 	
-	private static LField parseField(Method[] methods, Element element) throws LConfigurationException{
+	private static LField parseField(Method[] methods, Element element, String file) throws LConfigurationException{
 		String pname = element.getAttribute("name");
 		String pcolumn = element.getAttribute("column");
 		String ptype = element.getAttribute("type");
@@ -107,8 +110,17 @@ public class LConfigurationParser {
 		String tag = element.getNodeName();
 		String key = null;
 		
-		String setterName = LField.getSetterName(pname);
-		String getterName = LField.getGetterName(pname);
+		if(!knownTag(tag)){
+			return null;
+		}
+		
+		String setterName, getterName;
+		try{
+			setterName = LField.getSetterName(pname);
+			getterName = LField.getGetterName(pname);
+		}catch(StringIndexOutOfBoundsException e){
+			throw new LConfigurationException("Error parsing getters/setter for property "+pname, file);
+		}
 		Method setter = null;
 		Method getter = null;
 		for(Method method:methods){
@@ -164,10 +176,20 @@ public class LConfigurationParser {
 		return field;
 	}
 	
+	private static boolean knownTag(String tag){
+		String ltag = tag.toLowerCase();
+		for(int i=0;i<knownClassTags.length;i++){
+			if(ltag.equals(knownClassTags[i])){
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	private static Class findClass(String name) throws LConfigurationException{
 		if("string".equals(name) || "text".equals(name)){
 			return String.class;
-		}else if("integer".equals(name)){
+		}else if("integer".equals(name)|| "int".equals(name)){
 			return Integer.class;
 		}else if("long".equals(name)){
 			return Long.class;

@@ -54,7 +54,7 @@ public class LModel {
 						relField = relClass.findFieldByColumn(field.relationFieldName);
 					}
 					if(relField==null){
-						throw new LConfigurationException("Cannot find relation field "+field.relationFieldName);
+						throw new LConfigurationException("Cannot find relation field "+field.relationFieldName+" in class "+clazz.getName());
 					}
 					HashMap<LClass, List<LRelation>> relations = null;
 					if(field.isManyToOne()){

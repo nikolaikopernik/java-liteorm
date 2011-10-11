@@ -105,6 +105,10 @@ public class LFilter {
 				value = set.getShort(idx);
 			}else if(fieldClass.equals(Integer.class)){
 				value = set.getInt(idx);
+			}else if(fieldClass.equals(Long.class)){
+				value = set.getLong(idx);
+			}else if(fieldClass.equals(Boolean.class)){
+				value = set.getBoolean(idx);
 			}else{
 				value = set.getObject(idx);
 			}
